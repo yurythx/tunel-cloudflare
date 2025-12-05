@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  cloudflared:
+    # Best Practice: Pin specific version to avoid breaking changes
+    image: cloudflare/cloudflared:2025.9.1
+    container_name: cloudflared-tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+      # Enable metrics for healthcheck
+      - TUNNEL_METRICS=0.0.0.0:2000
+    
+    # Best Practice: Log rotation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        
+    # Best Practice: Healthcheck to ensure tunnel is responsive
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2000/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Best Practice: Resource limits (prevents container from consuming all host resources)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          memory: 64M
+
+    # Best Practice: Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    
+    networks:
+      - cloudflare-net
+
+networks:
+  cloudflare-net:
+    driver: bridge
